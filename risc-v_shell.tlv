@@ -41,7 +41,10 @@
       @0
          
          $reset = *reset;
-         $pc[31:0] = >>1$reset ? 0 : >>1$inc_pc[31:0];
+         $pc[31:0] = >>1$reset ? 0 :
+                     >>1$taken_br ? >>1$br_tgt_pc :
+                     >>1$inc_pc[31:0];
+                     
          $imem_rd_en = ! $reset;
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];         
       @1
@@ -62,10 +65,10 @@
          
          $imm[31:0] = $is_i_instr ? { {21{$instr[31]}}, $instr[30:20] } :
                       $is_s_instr ? { {21{$instr[31]}}, $instr[30:25], $instr[11:8], $inst[7] } :
-                      $is_b_instr ? { {19{$instr[31]}}, $instr[7], $instr[30:25], $instr[11:8], 1'b0 } :
+                      $is_b_instr ? { {20{$instr[31]}}, $instr[7], $instr[30:25], $instr[11:8], 1'b0 } :
                       $is_u_instr ? { $instr[31:12], 12'b0 } :
                       $is_j_instr ? { {12{$instr[31]}}, $instr[19:12], $inst[20], $inst[30:21], 1'b0 } :
-                      32'haaaaaa;
+                      32'x;
          //slide 11
          $funct7_valid = $is_r_instr;
          ?$funct7_valid
@@ -115,7 +118,16 @@
          ?$rd_valid
             $rf_wr_data[31:0] = $result;
             $rf_wr_index[4:0] = $rd;
-      
+         
+         //branches, slide 21
+         $taken_br = $is_beq  ?  $rf_rd_data1 == $rf_rd_data2 :
+                     $is_bne  ?  $rf_rd_data1 != $rf_rd_data2 :
+                     $is_blt  ? ($rf_rd_data1 <  $rf_rd_data2) ^ ($rf_rd_data1[31] != $rf_rd_data2[31]) :
+                     $is_bge  ? ($rf_rd_data1 >= $rf_rd_data2) ^ ($rf_rd_data1[31] != $rf_rd_data2[31]) :
+                     $is_bltu ?  $rf_rd_data1 <  $rf_rd_data2 :
+                     $is_bgeu ?  $rf_rd_data1 >= $rf_rd_data2 :
+                     1'b0;
+         $br_tgt_pc[31:0] = $pc + $imm;
       // YOUR CODE HERE
       // ...
 
@@ -125,7 +137,7 @@
 
    
    // Assert these to end simulation (before Makerchip cycle limit).
-   *passed = *cyc_cnt > 40;
+   *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
    *failed = 1'b0;
    
    // Macro instantiations for:
