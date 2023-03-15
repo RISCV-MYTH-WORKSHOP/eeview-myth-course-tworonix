@@ -43,7 +43,7 @@
 
          $valid_taken_br_debug = >>3$valid_taken_br;
          $br_tgt_pc_debug[31:0] = >>3$br_tgt_pc;
-         $pc[31:0] = >>1$reset ? 0 :
+         $pc[31:0] = >>3$reset ? 0 :
                      >>3$valid_taken_br ? >>3$br_tgt_pc :
                      >>1$inc_pc[31:0];
          
@@ -98,6 +98,34 @@
          $is_bgeu = $dec_bits ==? 11'bx_111_1100011;
          $is_addi = $dec_bits ==? 11'bx_000_0010011;
          $is_add  = $dec_bits ==? 11'b0_000_0110011;
+         //slide 44
+         $is_lui  = $dec_bits ==? 11'bx_xxx_0110111;
+         $is_auipc = $dec_bits ==? 11'bx_xxx_0010111;
+         $is_jal  = $dec_bits ==? 11'bx_xxx_1101111;
+         $is_jalr = $dec_bits ==? 11'bx_000_1100111;
+         $is_load = $dec_bits ==? 11'bx_xxx_0000011; // all loads
+         $is_sb   = $dec_bits ==? 11'bx_000_0100011;
+         $is_sh   = $dec_bits ==? 11'bx_001_0100011;
+         $is_sw   = $dec_bits ==? 11'bx_010_0100011;
+         //addi above
+         $is_slti = $dec_bits ==? 11'bx_010_0010011;
+         $is_sltiu = $dec_bits ==? 11'bx_011_0010011;
+         $is_xori = $dec_bits ==? 11'bx_100_0010011;
+         $is_ori  = $dec_bits ==? 11'bx_110_0010011;
+         $is_andi = $dec_bits ==? 11'bx_111_0010011;
+         $is_slli = $dec_bits ==? 11'b0_001_0010011;
+         $is_srli = $dec_bits ==? 11'b0_101_0010011;
+         $is_sral = $dec_bits ==? 11'b1_101_0010011;
+         //add already above
+         $is_sub  = $dec_bits ==? 11'b1_000_0110011;
+         $is_sll  = $dec_bits ==? 11'b0_001_0110011;
+         $is_slt  = $dec_bits ==? 11'b0_010_0110011;
+         $is_sltu = $dec_bits ==? 11'b0_011_0110011;
+         $is_xor  = $dec_bits ==? 11'b0_100_0110011;
+         $is_srl  = $dec_bits ==? 11'b0_101_0110011;
+         $is_sra  = $dec_bits ==? 11'b1_101_0110011;
+         $is_or   = $dec_bits ==? 11'b0_110_0110011;
+         $is_and  = $dec_bits ==? 11'b0_111_0110011;
          //`BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu $is_addi $is_add);
          
       @2   
@@ -119,9 +147,36 @@
          $src2_value[31:0] = >>1$rf_wr_en && >>1$rd == $rs2 ?
                               >>1$result : $rf_rd_data2;
          
+         $sltu_rslt  = $src1_value < $src2_value;
+         $sltiu_rslt = $src1_value < $imm;
+         
          $result[31:0] = $is_addi ? $src1_value + $imm :
                          $is_add ? $src1_value + $src2_value :
+                         //slide 45
+                         $is_andi ? $src1_value & $imm :
+                         $is_ori  ? $src1_value | $imm :
+                         $is_xori ? $src1_value ^ $imm :
+                         $is_slli ? $src1_value << $imm[5:0] :
+                         $is_srli ? $src1_value >> $imm[5:0] :
+                         $is_and  ? $src1_value & $src2_value :
+                         $is_or   ? $src1_value | $src2_value :
+                         $is_xor  ? $src1_value ^ $src2_value :
+                         $is_sub  ? $src1_value - $src2_value :
+                         $is_sll  ? $src1_value << $src2_value[4:0] :
+                         $is_srl  ? $src1_value >> $src2_value[4:0] :
+                         $is_sltu ? $sltu_rslt :
+                         $is_sltiu ? $sltiu_rslt :
+                         $is_lui  ? {$imm[31:12], 12'b0} :
+                         $is_auipc ? $pc + $imm :
+                         $is_jal  ? $pc + 4 :
+                         $is_jalr ? $pc + 4 :
+                         // signed operations, not native to verilog
+                         $is_srai ? { {32{$src1_value[31]}}, $src1_value} >> $imm[4:0] :
+                         $is_slt  ? (($src1_value[31] == $src2_value[31]) ? $sltu_rslt : {31'b0,$src1_value[31]}) :
+                         $is_slti ? (($src1_value[31] == $imm[31]) ? $sltiu_rslt : {31'b0,$src1_value[31]}) :
+                         $is_sra  ? { {32{$src1_value[31]}}, $src1_value} >> $src2_value[4:0] :
                          32'bx;
+         
          
          //register file write, slide 20
          $rf_wr_en = $rd_valid && $rd != 0 && $valid; //register index zero is read-only
