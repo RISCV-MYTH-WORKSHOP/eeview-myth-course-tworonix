@@ -39,12 +39,14 @@
 
    |cpu
       @0
-         
          $reset = *reset;
+
+         $valid_taken_br_debug = >>3$valid_taken_br;
+         $br_tgt_pc_debug[31:0] = >>3$br_tgt_pc;
          $pc[31:0] = >>1$reset ? 0 :
-                     >>1$taken_br ? >>1$br_tgt_pc :
+                     >>3$valid_taken_br ? >>3$br_tgt_pc :
                      >>1$inc_pc[31:0];
-                     
+         
          $imem_rd_en = ! $reset;
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];         
       @1
@@ -96,8 +98,9 @@
          $is_bgeu = $dec_bits ==? 11'bx_111_1100011;
          $is_addi = $dec_bits ==? 11'bx_000_0010011;
          $is_add  = $dec_bits ==? 11'b0_000_0110011;
-         `BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu $is_addi $is_add);
+         //`BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu $is_addi $is_add);
          
+      @2   
          // register file
          $rf_rd_en1 = $rs1_valid;
          ?$rs1_valid
@@ -105,16 +108,23 @@
          $rf_rd_en2 = $rs2_valid;
          ?$rs2_valid
             $rf_rd_index2[4:0] = $rs2;
-            
-         // connect alu slide 17
-         $src1_value[31:0] = $rf_rd_data1;
-         $src2_value[31:0] = $rf_rd_data2;
+         
+         // branches, address only         
+         $br_tgt_pc[31:0] = $pc + $imm;
+      
+      @3
+         // connect alu slide 17, plus register bypass slide 39
+         $src1_value[31:0] = >>1$rf_wr_en && >>1$rd == $rs1 ?
+                              >>1$result : $rf_rd_data1;
+         $src2_value[31:0] = >>1$rf_wr_en && >>1$rd == $rs2 ?
+                              >>1$result : $rf_rd_data2;
+         
          $result[31:0] = $is_addi ? $src1_value + $imm :
                          $is_add ? $src1_value + $src2_value :
                          32'bx;
          
          //register file write, slide 20
-         $rf_wr_en = $rd_valid && $rd != 0; //register index zero is read-only
+         $rf_wr_en = $rd_valid && $rd != 0 && $valid; //register index zero is read-only
          ?$rd_valid
             $rf_wr_data[31:0] = $result;
             $rf_wr_index[4:0] = $rd;
@@ -127,7 +137,11 @@
                      $is_bltu ?  $rf_rd_data1 <  $rf_rd_data2 :
                      $is_bgeu ?  $rf_rd_data1 >= $rf_rd_data2 :
                      1'b0;
-         $br_tgt_pc[31:0] = $pc + $imm;
+         $valid_taken_br = $valid && $taken_br;
+         
+         //taken branch invalidating the pipeline, slide 42
+         $valid = (! >>1$valid_taken_br) && (! >>2$valid_taken_br);
+         
       // YOUR CODE HERE
       // ...
 
@@ -147,7 +161,7 @@
    //  o CPU visualization
    |cpu
       m4+imem(@1)    // Args: (read stage)
-      m4+rf(@1, @1)  // Args: (read stage, write stage) - if equal, no register bypass is required
+      m4+rf(@2, @3)  // Args: (read stage, write stage) - if equal, no register bypass is required
       //m4+dmem(@4)    // Args: (read/write stage)
       //m4+myth_fpga(@0)  // Uncomment to run on fpga
 
