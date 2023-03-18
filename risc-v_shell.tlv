@@ -32,6 +32,8 @@
    m4_asm(ADDI, r13, r13, 1)            // Increment intermediate register by 1
    m4_asm(BLT, r13, r12, 1111111111000) // If a3 is less than a2, branch to label named <loop>
    m4_asm(ADD, r10, r14, r0)            // Store final result to register a0 so that it can be read by main program
+   m4_asm(SW, r0, r10, 10000)           // slide 52 - store final result to memory
+   m4_asm(LW, r17, r0, 10000)
    
    // Optional:
    // m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
@@ -51,7 +53,10 @@
                      >>1$inc_pc[31:0];
          
          $imem_rd_en = ! $reset;
-         $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];         
+         $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
+         
+         //TODO
+         //$ld_data[31:0] = $reset ? 32'b0 : >>1$ld_data[31:0];
       @1
          $inc_pc[31:0] = $pc + 4;
          $instr[31:0] = $imem_rd_data[31:0];
@@ -149,7 +154,7 @@
          $src2_value[31:0] = >>1$rf_wr_en && >>1$rd == $rs2 ?
                               >>1$result : $rf_rd_data2;
       
-      @3         
+      @3
          $sltu_rslt  = $src1_value < $src2_value;
          $sltiu_rslt = $src1_value < $imm;
          
@@ -181,13 +186,12 @@
                          32'bx;
          
          
-         $ld_data[31:0] = 32'b0;
          //register file write, slide 20, plus data load slide 49
          $rf_wr_en = ($rd_valid && $rd != 0 && $valid) ||  //register index zero is read-only
-                     (>>2$is_load);
+                     (>>2$is_load && >>2$valid);
          //?$rd_valid                   
-         $rf_wr_data[31:0] = $valid ? $result : 2>>$ld_data;
-         $rf_wr_index[4:0] = $valid ? $rd : 2>>$rd;
+         $rf_wr_data[31:0] = $valid ? $result : >>2$ld_data[31:0];
+         $rf_wr_index[4:0] = $valid ? $rd : >>2$rd;
          
          //branches, slide 21
          $taken_br = $is_beq  ?  $src1_value == $src2_value :
@@ -206,8 +210,15 @@
          //$debug3_blt_taken = ($src1_value <  $src2_value) ^ ($src1_value[31] != $src2_value[31]);
          //$debug3_is_blt = $is_blt;
          
-      //@5
-        // $ld_data[31:0] = 32'b0;
+      @4
+         // data memory, slide 51
+         $dmem_wr_en = $is_s_instr && $valid;
+         $dmem_addr[3:0] = $result[5:2];
+         $dmem_wr_data[31:0] = $src2_value;
+         $dmem_rd_en = $is_load;
+         
+      @5
+         $ld_data[31:0] = $dmem_rd_data[31:0];
          
       // YOUR CODE HERE
       // ...
@@ -218,7 +229,7 @@
 
    
    // Assert these to end simulation (before Makerchip cycle limit).
-   *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
+   *passed = |cpu/xreg[17]>>5$value == (1+2+3+4+5+6+7+8+9);
    *failed = 1'b0;
    
    // Macro instantiations for:
@@ -229,7 +240,7 @@
    |cpu
       m4+imem(@1)    // Args: (read stage)
       m4+rf(@2, @3)  // Args: (read stage, write stage) - if equal, no register bypass is required
-      //m4+dmem(@4)    // Args: (read/write stage)
+      m4+dmem(@4)    // Args: (read/write stage)
       //m4+myth_fpga(@0)  // Uncomment to run on fpga
 
    m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
