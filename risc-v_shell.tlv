@@ -47,6 +47,7 @@
          
          $pc[31:0] = >>3$reset ? 0 :
                      >>3$valid_taken_br ? >>3$br_tgt_pc :
+                     >>3$is_load ? >>3$pc :
                      >>1$inc_pc[31:0];
          
          $imem_rd_en = ! $reset;
@@ -152,7 +153,7 @@
          $sltu_rslt  = $src1_value < $src2_value;
          $sltiu_rslt = $src1_value < $imm;
          
-         $result[31:0] = $is_addi ? $src1_value + $imm :
+         $result[31:0] = ($is_addi || $is_load || $is_s_instr) ? $src1_value + $imm :
                          $is_add ? $src1_value + $src2_value :
                          //slide 45
                          $is_andi ? $src1_value & $imm :
@@ -180,11 +181,13 @@
                          32'bx;
          
          
-         //register file write, slide 20
-         $rf_wr_en = $rd_valid && $rd != 0 && $valid; //register index zero is read-only
-         ?$rd_valid
-            $rf_wr_data[31:0] = $result;
-            $rf_wr_index[4:0] = $rd;
+         $ld_data[31:0] = 32'b0;
+         //register file write, slide 20, plus data load slide 49
+         $rf_wr_en = ($rd_valid && $rd != 0 && $valid) ||  //register index zero is read-only
+                     (>>2$is_load);
+         //?$rd_valid                   
+         $rf_wr_data[31:0] = $valid ? $result : 2>>$ld_data;
+         $rf_wr_index[4:0] = $valid ? $rd : 2>>$rd;
          
          //branches, slide 21
          $taken_br = $is_beq  ?  $src1_value == $src2_value :
@@ -197,10 +200,14 @@
          $valid_taken_br = $valid && $taken_br;
          
          //taken branch invalidating the pipeline, slide 42
-         $valid = (! >>1$valid_taken_br) && (! >>2$valid_taken_br);
+         $valid = (! >>1$valid_taken_br) && (! >>2$valid_taken_br) &&
+                  (! >>1$is_load) && (! >>2$is_load);
          
-         $debug3_blt_taken = ($src1_value <  $src2_value) ^ ($src1_value[31] != $src2_value[31]);
-         $debug3_is_blt = $is_blt;
+         //$debug3_blt_taken = ($src1_value <  $src2_value) ^ ($src1_value[31] != $src2_value[31]);
+         //$debug3_is_blt = $is_blt;
+         
+      //@5
+        // $ld_data[31:0] = 32'b0;
          
       // YOUR CODE HERE
       // ...
