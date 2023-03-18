@@ -50,6 +50,7 @@
          $pc[31:0] = >>3$reset ? 0 :
                      >>3$valid_taken_br ? >>3$br_tgt_pc :
                      >>3$is_load ? >>3$pc :
+                     >>3$valid_jump ? >>3$jalr_tgt_pc :
                      >>1$inc_pc[31:0];
          
          $imem_rd_en = ! $reset;
@@ -134,7 +135,7 @@
          $is_sra  = $dec_bits ==? 11'b1_101_0110011;
          $is_or   = $dec_bits ==? 11'b0_110_0110011;
          $is_and  = $dec_bits ==? 11'b0_111_0110011;
-         //`BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu $is_addi $is_add);
+         $is_jump = $is_jal || $is_jalr;
          
       @2   
          // register file
@@ -200,12 +201,17 @@
                      $is_bge  ? ($src1_value >= $src2_value) ^ ($src1_value[31] != $src2_value[31]) :
                      $is_bltu ?  $src1_value <  $src2_value :
                      $is_bgeu ?  $src1_value >= $src2_value :
+                     $is_jal  ?  1'b1 :
                      1'b0;
          $valid_taken_br = $valid && $taken_br;
+         $valid_jump = $valid && $is_jump;
          
-         //taken branch invalidating the pipeline, slide 42
+         //taken branch invalidates the pipeline, slide 42
          $valid = (! >>1$valid_taken_br) && (! >>2$valid_taken_br) &&
-                  (! >>1$is_load) && (! >>2$is_load);
+                  (! >>1$is_load) && (! >>2$is_load) &&   // TODO should it check $valid load
+                  (! >>1$valid_jump) && (! >>2$valid_jump);  //slide 53
+         
+         $jalr_tgt_pc = $src1_value + $imm;  // slide 53
          
          //$debug3_blt_taken = ($src1_value <  $src2_value) ^ ($src1_value[31] != $src2_value[31]);
          //$debug3_is_blt = $is_blt;
