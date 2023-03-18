@@ -43,6 +43,8 @@
 
          $valid_taken_br_debug = >>3$valid_taken_br;
          $br_tgt_pc_debug[31:0] = >>3$br_tgt_pc;
+         `BOGUS_USE($valid_taken_br_debug $br_tgt_pc_debug);
+         
          $pc[31:0] = >>3$reset ? 0 :
                      >>3$valid_taken_br ? >>3$br_tgt_pc :
                      >>1$inc_pc[31:0];
@@ -115,7 +117,7 @@
          $is_andi = $dec_bits ==? 11'bx_111_0010011;
          $is_slli = $dec_bits ==? 11'b0_001_0010011;
          $is_srli = $dec_bits ==? 11'b0_101_0010011;
-         $is_sral = $dec_bits ==? 11'b1_101_0010011;
+         $is_srai = $dec_bits ==? 11'b1_101_0010011;
          //add already above
          $is_sub  = $dec_bits ==? 11'b1_000_0110011;
          $is_sll  = $dec_bits ==? 11'b0_001_0110011;
@@ -139,14 +141,14 @@
          
          // branches, address only         
          $br_tgt_pc[31:0] = $pc + $imm;
-      
-      @3
+         
          // connect alu slide 17, plus register bypass slide 39
          $src1_value[31:0] = >>1$rf_wr_en && >>1$rd == $rs1 ?
                               >>1$result : $rf_rd_data1;
          $src2_value[31:0] = >>1$rf_wr_en && >>1$rd == $rs2 ?
                               >>1$result : $rf_rd_data2;
-         
+      
+      @3         
          $sltu_rslt  = $src1_value < $src2_value;
          $sltiu_rslt = $src1_value < $imm;
          
@@ -185,17 +187,20 @@
             $rf_wr_index[4:0] = $rd;
          
          //branches, slide 21
-         $taken_br = $is_beq  ?  $rf_rd_data1 == $rf_rd_data2 :
-                     $is_bne  ?  $rf_rd_data1 != $rf_rd_data2 :
-                     $is_blt  ? ($rf_rd_data1 <  $rf_rd_data2) ^ ($rf_rd_data1[31] != $rf_rd_data2[31]) :
-                     $is_bge  ? ($rf_rd_data1 >= $rf_rd_data2) ^ ($rf_rd_data1[31] != $rf_rd_data2[31]) :
-                     $is_bltu ?  $rf_rd_data1 <  $rf_rd_data2 :
-                     $is_bgeu ?  $rf_rd_data1 >= $rf_rd_data2 :
+         $taken_br = $is_beq  ?  $src1_value == $src2_value :
+                     $is_bne  ?  $src1_value != $src2_value :
+                     $is_blt  ? ($src1_value <  $src2_value) ^ ($src1_value[31] != $src2_value[31]) :
+                     $is_bge  ? ($src1_value >= $src2_value) ^ ($src1_value[31] != $src2_value[31]) :
+                     $is_bltu ?  $src1_value <  $src2_value :
+                     $is_bgeu ?  $src1_value >= $src2_value :
                      1'b0;
          $valid_taken_br = $valid && $taken_br;
          
          //taken branch invalidating the pipeline, slide 42
          $valid = (! >>1$valid_taken_br) && (! >>2$valid_taken_br);
+         
+         $debug3_blt_taken = ($src1_value <  $src2_value) ^ ($src1_value[31] != $src2_value[31]);
+         $debug3_is_blt = $is_blt;
          
       // YOUR CODE HERE
       // ...
