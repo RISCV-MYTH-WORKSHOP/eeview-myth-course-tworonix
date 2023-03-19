@@ -30,13 +30,14 @@
    // Loop:
    m4_asm(ADD, r14, r13, r14)           // Incremental addition
    m4_asm(ADDI, r13, r13, 1)            // Increment intermediate register by 1
+   //m4_asm(JAL, r2, 11111111111111111100)  // testing if JAL works
    m4_asm(BLT, r13, r12, 1111111111000) // If a3 is less than a2, branch to label named <loop>
    m4_asm(ADD, r10, r14, r0)            // Store final result to register a0 so that it can be read by main program
    m4_asm(SW, r0, r10, 10000)           // slide 52 - store final result to memory
    m4_asm(LW, r17, r0, 10000)
    
    // Optional:
-   // m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
+   m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
    m4_define_hier(['M4_IMEM'], M4_NUM_INSTRS)
 
    |cpu
@@ -49,7 +50,7 @@
          
          $pc[31:0] = >>3$reset ? 0 :
                      >>3$valid_taken_br ? >>3$br_tgt_pc :
-                     >>3$is_load ? >>3$pc :
+                     >>3$is_load ? >>3$inc_pc :
                      >>3$valid_jump ? >>3$jalr_tgt_pc :
                      >>1$inc_pc[31:0];
          
@@ -75,11 +76,12 @@
          $is_u_instr = $instr[6:2] ==? 5'b0x101;
          
          $imm[31:0] = $is_i_instr ? { {21{$instr[31]}}, $instr[30:20] } :
-                      $is_s_instr ? { {21{$instr[31]}}, $instr[30:25], $instr[11:8], $inst[7] } :
+                      $is_s_instr ? { {21{$instr[31]}}, $instr[30:25], $instr[11:8], $instr[7] } :
                       $is_b_instr ? { {20{$instr[31]}}, $instr[7], $instr[30:25], $instr[11:8], 1'b0 } :
                       $is_u_instr ? { $instr[31:12], 12'b0 } :
-                      $is_j_instr ? { {12{$instr[31]}}, $instr[19:12], $inst[20], $inst[30:21], 1'b0 } :
+                      $is_j_instr ? { {12{$instr[31]}}, $instr[19:12], $instr[20], $instr[30:21], 1'b0 } :
                       32'x;
+         
          //slide 11
          $funct7_valid = $is_r_instr;
          ?$funct7_valid
@@ -235,7 +237,7 @@
 
    
    // Assert these to end simulation (before Makerchip cycle limit).
-   *passed = |cpu/xreg[17]>>5$value == (1+2+3+4+5+6+7+8+9);
+   *passed = |cpu/xreg[17]>>20$value == (1+2+3+4+5+6+7+8+9);
    *failed = 1'b0;
    
    // Macro instantiations for:
