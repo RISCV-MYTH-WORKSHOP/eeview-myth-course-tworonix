@@ -50,12 +50,13 @@
          
          $pc[31:0] = >>3$reset ? 0 :
                      >>3$valid_taken_br ? >>3$br_tgt_pc :
-                     >>3$is_load ? >>3$inc_pc :
+                     >>3$valid_load ? >>3$inc_pc :
                      >>3$valid_jump ? >>3$jalr_tgt_pc :
                      >>1$inc_pc[31:0];
          
          $imem_rd_en = ! $reset;
-         $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
+         //$imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
+         $imem_rd_addr[31:0] = $pc[31:2]; //TODO errors in vivado 
          
          //TODO
          //$ld_data[31:0] = $reset ? 32'b0 : >>1$ld_data[31:0];
@@ -80,7 +81,7 @@
                       $is_b_instr ? { {20{$instr[31]}}, $instr[7], $instr[30:25], $instr[11:8], 1'b0 } :
                       $is_u_instr ? { $instr[31:12], 12'b0 } :
                       $is_j_instr ? { {12{$instr[31]}}, $instr[19:12], $instr[20], $instr[30:21], 1'b0 } :
-                      32'x;
+                      32'b0;
          
          //slide 11
          $funct7_valid = $is_r_instr;
@@ -150,14 +151,13 @@
          
          // branches, address only         
          $br_tgt_pc[31:0] = $pc + $imm;
-         
+      @3   
          // connect alu slide 17, plus register bypass slide 39
          $src1_value[31:0] = >>1$rf_wr_en && >>1$rd == $rs1 ?
                               >>1$result : $rf_rd_data1;
          $src2_value[31:0] = >>1$rf_wr_en && >>1$rd == $rs2 ?
                               >>1$result : $rf_rd_data2;
       
-      @3
          $sltu_rslt  = $src1_value < $src2_value;
          $sltiu_rslt = $src1_value < $imm;
          
@@ -188,7 +188,7 @@
                          $is_sra  ? { {32{$src1_value[31]}}, $src1_value} >> $src2_value[4:0] :
                          32'bx;
          
-         
+         `BOGUS_USE($is_sw $is_sh $is_sb)
          //register file write, slide 20, plus data load slide 49
          $rf_wr_en = ($rd_valid && $rd != 0 && $valid) ||  //register index zero is read-only
                      (>>2$is_load && >>2$valid);
@@ -207,13 +207,13 @@
                      1'b0;
          $valid_taken_br = $valid && $taken_br;
          $valid_jump = $valid && $is_jump;
-         
+         $valid_load = $valid && $is_load;
          //taken branch invalidates the pipeline, slide 42
          $valid = (! >>1$valid_taken_br) && (! >>2$valid_taken_br) &&
-                  (! >>1$is_load) && (! >>2$is_load) &&   // TODO should it check $valid load
+                  (! >>1$valid_load) && (! >>2$valid_load) &&   // TODO should it check $valid load
                   (! >>1$valid_jump) && (! >>2$valid_jump);  //slide 53
          
-         $jalr_tgt_pc = $src1_value + $imm;  // slide 53
+         $jalr_tgt_pc[31:0] = $src1_value + $imm;  // slide 53
          
          //$debug3_blt_taken = ($src1_value <  $src2_value) ^ ($src1_value[31] != $src2_value[31]);
          //$debug3_is_blt = $is_blt;
