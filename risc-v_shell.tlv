@@ -1,4 +1,4 @@
-\m4_TLV_version 1d: tl-x.org
+\m4_TLV_version 1d -p verilog --bestsv --noline: tl-x.org
 \SV
    // This code can be found in: https://github.com/stevehoover/RISC-V_MYTH_Workshop
    
@@ -55,8 +55,8 @@
                      >>1$inc_pc[31:0];
          
          $imem_rd_en = ! $reset;
-         //$imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
-         $imem_rd_addr[31:0] = $pc[31:2]; //TODO errors in vivado 
+         $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
+         //$imem_rd_addr[31:0] = $pc[31:2]; //TODO errors in vivado 
          
          //TODO
          //$ld_data[31:0] = $reset ? 32'b0 : >>1$ld_data[31:0];
@@ -249,8 +249,8 @@
       m4+imem(@1)    // Args: (read stage)
       m4+rf(@2, @3)  // Args: (read stage, write stage) - if equal, no register bypass is required
       m4+dmem(@4)    // Args: (read/write stage)
-      //m4+myth_fpga(@0)  // Uncomment to run on fpga
+      m4+myth_fpga(@0)  // Uncomment to run on fpga
 
-   m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
+   //m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
 \SV
    endmodule
