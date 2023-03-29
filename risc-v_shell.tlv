@@ -56,10 +56,7 @@
          
          $imem_rd_en = ! $reset;
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
-         //$imem_rd_addr[31:0] = $pc[31:2]; //TODO errors in vivado 
          
-         //TODO
-         //$ld_data[31:0] = $reset ? 32'b0 : >>1$ld_data[31:0];
       @1
          $inc_pc[31:0] = $pc + 4;
          $instr[31:0] = $imem_rd_data[31:0];
@@ -213,10 +210,7 @@
                   (! >>1$valid_load) && (! >>2$valid_load) &&   // TODO should it check $valid load
                   (! >>1$valid_jump) && (! >>2$valid_jump);  //slide 53
          
-         $jalr_tgt_pc[31:0] = $src1_value + $imm;  // slide 53
-         
-         //$debug3_blt_taken = ($src1_value <  $src2_value) ^ ($src1_value[31] != $src2_value[31]);
-         //$debug3_is_blt = $is_blt;
+         $jalr_tgt_pc[31:0] = $src1_value + $imm;  // slide 53         
          
       @4
          // data memory, slide 51
